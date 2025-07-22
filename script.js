@@ -279,49 +279,87 @@ const simpleTransposer = {
       }, CONFIG.DEBOUNCE_DELAY));
     }
   },
+transpose() {
+  try {
+    utils.showLoading();
+    
+    const input = document.getElementById("inputCifra").value.trim();
+    const targetKey = document.getElementById("tomDestinoCifra").value;
+    const preference = document.getElementById("preferenciaCifra").value;
+    const display = document.getElementById("resultadoCifra");
 
-  transpose() {
-    try {
-      utils.showLoading();
-      
-      const input = document.getElementById("inputAcordesSimples").value.trim();
-      const targetKey = document.getElementById("tomDestinoSimples").value;
-      const preference = document.getElementById("preferenciaSimples").value;
-      const display = document.getElementById("acordesTranspostosSimples");
+    if (!input) {
+      display.textContent = "Cole uma cifra completa para transpor...";
+      return;
+    }
 
-      if (!input) {
-        display.textContent = "Digite alguns acordes para transpor...";
-        display.style.background = "rgba(148, 163, 184, 0.1)";
-        return;
+    const [targetIndexStr] = targetKey.split("-");
+    const targetIndex = parseInt(targetIndexStr);
+
+    const lines = input.split("\n");
+
+    // Detectar tom original baseado na primeira linha com acorde válido
+    let originalKey = -1;
+    for (let line of lines) {
+      const match = line.match(/([A-G](?:#|b)?)/);
+      if (match && notasValidasSimples.includes(match[1])) {
+        originalKey = notasCromaticasSimples.findIndex(n =>
+          n.s === match[1] || n.b === match[1]
+        );
+        break;
+      }
+    }
+
+    if (originalKey === -1) {
+      throw new Error("Não foi possível identificar o tom original da cifra.");
+    }
+
+    // Regex de acordes (como C, G#m, F#7, Bbm7, etc.)
+    const chordRegex = /\b([A-G](?:#|b)?)([^\s]*)\b/g;
+
+    // Transpor linha a linha
+    const result = lines.map(line => {
+      // Se a linha parecer conter apenas acordes, transpô-la
+      const onlyChords = line.trim().split(/\s+/).every(token =>
+        chordRegex.test(token)
+      );
+
+      // Reset regex cursor
+      chordRegex.lastIndex = 0;
+
+      if (onlyChords) {
+        return line.replace(chordRegex, (full, note, suffix) => {
+          const noteIndex = notasCromaticasSimples.findIndex(n =>
+            n.s === note || n.b === note
+          );
+          if (noteIndex === -1) return full;
+
+          const transposedIndex = (noteIndex - originalKey + targetIndex + 12) % 12;
+          const newNote = preference === "bemol"
+            ? notasCromaticasSimples[transposedIndex].b
+            : notasCromaticasSimples[transposedIndex].s;
+
+          return newNote + suffix;
+        });
       }
 
-      const result = transposition.transposeChords(input, targetKey, preference);
-      
-      display.textContent = result;
-      display.style.background = "rgba(6, 182, 212, 0.1)";
-      
-      // Salvar última transposição
-      appState.lastTransposition = {
-        type: 'simple',
-        input,
-        result,
-        targetKey,
-        preference,
-        timestamp: Date.now()
-      };
-      utils.saveToStorage();
-      
-      utils.showNotification("Acordes transpostos com sucesso!");
-      
-    } catch (error) {
-      const display = document.getElementById("acordesTranspostosSimples");
-      display.textContent = error.message;
-      display.style.background = "rgba(239, 68, 68, 0.1)";
-      utils.showNotification(error.message, 'error');
-    } finally {
-      utils.hideLoading();
-    }
+      // Se não for só acordes, mantém como está
+      return line;
+    }).join("\n");
+
+    display.textContent = result;
+    utils.showNotification("Cifra transposta com sucesso!");
+    
+  } catch (error) {
+    const display = document.getElementById("resultadoCifra");
+    display.textContent = error.message;
+    utils.showNotification(error.message, 'error');
+  } finally {
+    utils.hideLoading();
   }
+}
+
+  
 };
 
 // Transpositor com Partes
