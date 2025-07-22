@@ -6,7 +6,6 @@ const CONFIG = {
 };
 
 // Notas cromáticas para transposição
-// Cada objeto contém a notação com sustenido (s) e bemol (b)
 const notasCromaticasSimples = [
   {s: "C", b: "C"},
   {s: "C#", b: "Db"},
@@ -22,19 +21,18 @@ const notasCromaticasSimples = [
   {s: "B", b: "B"}
 ];
 
-// Lista de todas as notas válidas (sustenidos e bemóis) para facilitar a busca
 const notasValidasSimples = notasCromaticasSimples.flatMap(n => [n.s, n.b]);
 
 // Estado da aplicação
 let appState = {
   currentSection: 'simples',
-  sections: [], // Usado para o transpositor com partes
-  lastTransposition: null // Armazena a última transposição para referência
+  sections: [],
+  lastTransposition: null
 };
 
-// Utilitários gerais da aplicação
+// Utilitários
 const utils = {
-  // Função debounce para otimizar a performance de funções que disparam repetidamente
+  // Debounce para otimizar performance
   debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -47,23 +45,19 @@ const utils = {
     };
   },
 
-  // Exibe o overlay de carregamento
+  // Mostrar loading
   showLoading() {
     const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-      overlay.classList.add('active');
-    }
+    overlay.classList.add('active');
   },
 
-  // Esconde o overlay de carregamento
+  // Esconder loading
   hideLoading() {
     const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-      overlay.classList.remove('active');
-    }
+    overlay.classList.remove('active');
   },
 
-  // Salva o estado da aplicação no localStorage
+  // Salvar no localStorage
   saveToStorage() {
     try {
       localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(appState));
@@ -72,13 +66,12 @@ const utils = {
     }
   },
 
-  // Carrega o estado da aplicação do localStorage
+  // Carregar do localStorage
   loadFromStorage() {
     try {
       const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
       if (saved) {
         const data = JSON.parse(saved);
-        // Mescla o estado salvo com o estado inicial, garantindo que novas propriedades sejam mantidas
         appState = { ...appState, ...data };
       }
     } catch (e) {
@@ -86,559 +79,555 @@ const utils = {
     }
   },
 
-  // Exibe notificações para o usuário (sucesso, erro, informação)
-  showNotification(message, type = 'info', duration = 3000) {
-    const notificationContainer = document.getElementById('notificationContainer');
-    if (!notificationContainer) {
-      console.warn('Contêiner de notificação não encontrado.');
-      return;
-    }
-
+  // Mostrar notificação
+  showNotification(message, type = 'success') {
+    // Criar elemento de notificação
     const notification = document.createElement('div');
-    notification.className = `notification ${type} animate-in`;
+    notification.className = `notification notification-${type}`;
     notification.textContent = message;
+    
+    // Estilos inline para a notificação
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      color: 'white',
+      fontWeight: '600',
+      zIndex: '1001',
+      transform: 'translateX(100%)',
+      transition: 'transform 0.3s ease-in-out',
+      backgroundColor: type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#06b6d4'
+    });
 
-    notificationContainer.appendChild(notification);
+    document.body.appendChild(notification);
 
-    // Remove a notificação após a duração especificada
+    // Animar entrada
     setTimeout(() => {
-      notification.classList.remove('animate-in');
-      notification.classList.add('animate-out');
-      notification.addEventListener('animationend', () => {
-        notification.remove();
-      }, { once: true });
-    }, duration);
+      notification.style.transform = 'translateX(0)';
+    }, 10);
+
+    // Remover após 3 segundos
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 300);
+    }, 3000);
   }
 };
 
-// Módulo de navegação entre seções
+// Navegação
 const navigation = {
   init() {
-    const navLinks = document.querySelectorAll('.nav-link');
+    // Toggle mobile menu
     const navToggle = document.querySelector('.nav-toggle');
     const navMenu = document.querySelector('.nav-menu');
+    
+    navToggle?.addEventListener('click', () => {
+      const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
+      navToggle.setAttribute('aria-expanded', !isExpanded);
+      navMenu.classList.toggle('active');
+    });
 
-    navLinks.forEach(link => {
+    // Navigation links
+    document.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        const sectionId = link.getAttribute('data-section');
-        navigation.showSection(sectionId);
-        // Esconde o menu em mobile após a seleção
-        if (navMenu && navToggle && navMenu.classList.contains('active')) {
-          navMenu.classList.remove('active');
-          navToggle.setAttribute('aria-expanded', 'false');
-        }
+        const sectionId = link.dataset.section;
+        this.showSection(sectionId);
+        
+        // Fechar menu mobile
+        navMenu.classList.remove('active');
+        navToggle.setAttribute('aria-expanded', 'false');
       });
     });
 
-    if (navToggle && navMenu) {
-      navToggle.addEventListener('click', () => {
-        const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
-        navToggle.setAttribute('aria-expanded', String(!isExpanded));
-        navMenu.classList.toggle('active');
-      });
-    }
-
-    // Exibe a seção inicial ou a última salva
-    navigation.showSection(appState.currentSection || 'simples');
+    // Mostrar seção inicial
+    this.showSection(appState.currentSection);
   },
 
-  // Mostra uma seção específica e esconde as outras
   showSection(sectionId) {
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(section => {
+    // Atualizar estado
+    appState.currentSection = sectionId;
+    utils.saveToStorage();
+
+    // Esconder todas as seções
+    document.querySelectorAll('.section').forEach(section => {
       section.classList.remove('active');
-      section.setAttribute('aria-hidden', 'true');
     });
 
+    // Mostrar seção ativa
     const activeSection = document.getElementById(sectionId);
     if (activeSection) {
       activeSection.classList.add('active');
-      activeSection.setAttribute('aria-hidden', 'false');
-      appState.currentSection = sectionId;
-      utils.saveToStorage();
+    }
+
+    // Atualizar navegação
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.classList.remove('active');
+    });
+    
+    const activeLink = document.querySelector(`[data-section="${sectionId}"]`);
+    if (activeLink) {
+      activeLink.classList.add('active');
     }
   }
 };
 
-// Módulo de lógica de transposição central
+// Transposição
 const transposition = {
-  // Popula os selects de tom (origem e destino)
+  // Preencher selects com tons
   populateKeySelects() {
-    const keySelects = document.querySelectorAll('.key-select');
-    notasCromaticasSimples.forEach(nota => {
-      const optionSustenido = document.createElement('option');
-      optionSustenido.value = nota.s;
-      optionSustenido.textContent = nota.s;
-
-      const optionBemol = document.createElement('option');
-      optionBemol.value = nota.b;
-      optionBemol.textContent = nota.b;
-
-      keySelects.forEach(select => {
-        // Evita duplicatas se já existirem
-        if (!Array.from(select.options).some(opt => opt.value === nota.s)) {
-          select.appendChild(optionSustenido.cloneNode(true));
-        }
-        if (nota.s !== nota.b && !Array.from(select.options).some(opt => opt.value === nota.b)) {
-          select.appendChild(optionBemol.cloneNode(true));
-        }
+    const selects = ['tomDestinoSimples', 'tomDestinoPartes', 'tomDestinoCifra'];
+    
+    selects.forEach(selectId => {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      
+      select.innerHTML = "";
+      
+      notasCromaticasSimples.forEach((nota, i) => {
+        // Tom maior
+        const optMaior = document.createElement("option");
+        optMaior.value = i + "-M";
+        optMaior.textContent = nota.s;
+        select.appendChild(optMaior);
+        
+        // Tom menor
+        const optMenor = document.createElement("option");
+        optMenor.value = i + "-m";
+        optMenor.textContent = nota.s + "m";
+        select.appendChild(optMenor);
       });
+      
+      select.value = "0-M"; // C maior como padrão
     });
   },
 
-  // Valida se uma nota é reconhecida pelo sistema
-  isValidNote(note) {
-    return notasValidasSimples.includes(note);
+  // Encontrar tom original
+  findOriginalKey(chords) {
+    for (let chord of chords) {
+      const match = chord.match(/^([A-G](?:#|b)?)/);
+      if (match && notasValidasSimples.includes(match[1])) {
+        return notasCromaticasSimples.findIndex(n => 
+          n.s === match[1] || n.b === match[1]
+        );
+      }
+    }
+    return -1;
   },
 
-  // Transpõe um único acorde
-  // ATENÇÃO: Esta função realiza APENAS TRANSPOSIÇÃO CROMÁTICA.
-  // Ela desloca a nota raiz do acorde por um número de semitons,
-  // mantendo a qualidade do acorde (maior, menor, 7ª, etc.).
-  // Não há lógica para converter acordes entre modos (ex: de Fm para F Maior),
-  // pois isso exige uma análise harmônica e funcional mais complexa.
-  transposeChord(chord, origem, destino, preferencia) {
-    if (!chord || !origem || !destino) return chord;
+  // Transpor acorde individual
+  transposeChord(chord, fromKey, toKey, preference) {
+    const match = chord.match(/^([A-G](?:#|b)?)(.*)$/);
+    if (!match) return chord;
 
-    // Expressão regular para separar a nota raiz do sufixo do acorde
-    // Ex: "Am7" -> "A" (nota), "m7" (sufixo)
-    // Ex: "C#" -> "C#" (nota), "" (sufixo)
-    // Ex: "G/B" -> "G" (nota), "/B" (sufixo)
-    const match = chord.match(/^([A-G][#b]?)(.*)$/);
-    if (!match) return chord; // Não é um acorde reconhecível
+    const [, note, suffix] = match;
+    const originalIndex = notasCromaticasSimples.findIndex(n => 
+      n.s === note || n.b === note
+    );
+    
+    if (originalIndex === -1) return chord;
 
-    let nota = match[1];
-    let sufixo = match[2];
+    const transposedIndex = (originalIndex - fromKey + toKey + 12) % 12;
+    const newNote = preference === "bemol" 
+      ? notasCromaticasSimples[transposedIndex].b
+      : notasCromaticasSimples[transposedIndex].s;
 
-    // Encontra o índice da nota de origem na escala cromática
-    let origemIndice = -1;
-    for (let i = 0; i < notasCromaticasSimples.length; i++) {
-      if (notasCromaticasSimples[i].s === origem || notasCromaticasSimples[i].b === origem) {
-        origemIndice = i;
-        break;
-      }
+    return newNote + suffix;
+  },
+
+  // Transpor lista de acordes
+  transposeChords(chordsString, targetKey, preference) {
+    const chords = chordsString.trim().split(/\s+/);
+    if (chords.length === 0) return null;
+
+    const originalKey = this.findOriginalKey(chords);
+    if (originalKey === -1) {
+      throw new Error("Não foi possível identificar o tom original.");
     }
 
-    // Encontra o índice da nota de destino na escala cromática
-    let destinoIndice = -1;
-    for (let i = 0; i < notasCromaticasSimples.length; i++) {
-      if (notasCromaticasSimples[i].s === destino || notasCromaticasSimples[i].b === destino) {
-        destinoIndice = i;
-        break;
-      }
-    }
+    const [targetIndexStr] = targetKey.split("-");
+    const targetIndex = parseInt(targetIndexStr);
 
-    // Encontra o índice da nota atual do acorde na escala cromática
-    let indiceAtual = -1;
-    for (let i = 0; i < notasCromaticasSimples.length; i++) {
-      if (notasCromaticasSimples[i].s === nota || notasCromaticasSimples[i].b === nota) {
-        indiceAtual = i;
-        break;
-      }
-    }
+    const transposedChords = chords.map(chord => 
+      this.transposeChord(chord, originalKey, targetIndex, preference)
+    );
 
-    if (origemIndice === -1 || destinoIndice === -1 || indiceAtual === -1) {
-      return chord; // Notas de origem/destino ou acorde não encontrados
-    }
-
-    // Calcula o deslocamento (intervalo)
-    const deslocamento = (destinoIndice - origemIndice + 12) % 12;
-
-    // Calcula o novo índice do acorde transposto
-    const transpostoIndice = (indiceAtual + deslocamento + 12) % 12;
-
-    // Obtém a nova nota transposta com base na preferência (sustenido/bemol)
-    let novaNota = preferencia === "bemol"
-      ? notasCromaticasSimples[transpostoIndice].b
-      : notasCromaticasSimples[transpostoIndice].s;
-
-    return novaNota + sufixo;
+    return transposedChords.join(" ");
   }
 };
 
-// Módulo para o transpositor simples
+// Transpositor Simples
 const simpleTransposer = {
-  inputElement: null,
-  outputElement: null,
-  keyOriginSelect: null,
-  keyDestinationSelect: null,
-  preferenceSelect: null,
-  debouncedTranspose: null,
-
   init() {
-    this.inputElement = document.getElementById('acordesSimplesInput');
-    this.outputElement = document.getElementById('resultadoSimples');
-    this.keyOriginSelect = document.getElementById('tomOrigemSimples');
-    this.keyDestinationSelect = document.getElementById('tomDestinoSimples');
-    this.preferenceSelect = document.getElementById('preferenciaSimples');
+    const button = document.querySelector('button[onclick="transporSimples()"]');
+    if (button) {
+      button.removeAttribute('onclick');
+      button.addEventListener('click', () => this.transpose());
+    }
 
-    this.debouncedTranspose = utils.debounce(this.transpose.bind(this), CONFIG.DEBOUNCE_DELAY);
-
-    this.inputElement.addEventListener('input', this.debouncedTranspose);
-    this.keyOriginSelect.addEventListener('change', this.debouncedTranspose);
-    this.keyDestinationSelect.addEventListener('change', this.debouncedTranspose);
-    this.preferenceSelect.addEventListener('change', this.debouncedTranspose);
-
-    // Carregar último estado e transpor
-    if (appState.lastTransposition && appState.lastTransposition.simple) {
-      this.inputElement.value = appState.lastTransposition.simple.input;
-      this.keyOriginSelect.value = appState.lastTransposition.simple.originKey;
-      this.keyDestinationSelect.value = appState.lastTransposition.simple.destKey;
-      this.preferenceSelect.value = appState.lastTransposition.simple.preference;
-      this.transpose(); // Transpõe imediatamente ao carregar
+    // Auto-transpose on input change (debounced)
+    const input = document.getElementById('inputAcordesSimples');
+    if (input) {
+      input.addEventListener('input', utils.debounce(() => {
+        if (input.value.trim()) {
+          this.transpose();
+        }
+      }, CONFIG.DEBOUNCE_DELAY));
     }
   },
 
   transpose() {
-    utils.showLoading();
-    const acordesInput = this.inputElement.value.trim();
-    const origem = this.keyOriginSelect.value;
-    const destino = this.keyDestinationSelect.value;
-    const preferencia = this.preferenceSelect.value;
+    try {
+      utils.showLoading();
+      
+      const input = document.getElementById("inputAcordesSimples").value.trim();
+      const targetKey = document.getElementById("tomDestinoSimples").value;
+      const preference = document.getElementById("preferenciaSimples").value;
+      const display = document.getElementById("acordesTranspostosSimples");
 
-    if (!acordesInput) {
-      this.outputElement.textContent = '';
-      utils.hideLoading();
-      return;
-    }
-
-    if (!transposition.isValidNote(origem) || !transposition.isValidNote(destino)) {
-      utils.showNotification('Selecione tons de origem e destino válidos.', 'error');
-      this.outputElement.textContent = 'Erro: Selecione tons válidos.';
-      utils.hideLoading();
-      return;
-    }
-
-    // Expressão regular para encontrar acordes:
-    // Procura por uma nota (C, D, E, F, G, A, B, com ou sem #/b)
-    // seguida por qualquer combinação de letras, números, '/', '+', '-', 'o', 'Δ'
-    // que compõem um sufixo de acorde, até um espaço ou fim de linha.
-    // Garante que não capture letras de palavras.
-    const chordRegex = new RegExp(
-      `\\b([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
-      'g'
-    );
-
-
-    const acordesTranspostos = acordesInput.split(/\s+/).map(acorde => {
-      // Verifica se o "acorde" atual realmente corresponde a um padrão de acorde
-      const match = acorde.match(chordRegex);
-      if (match && match[0] === acorde) { // Garante que a correspondência seja exata para o "acorde"
-        return transposition.transposeChord(acorde, origem, destino, preferencia);
-      }
-      return acorde; // Retorna o texto original se não for um acorde
-    }).join(' ');
-
-    this.outputElement.textContent = acordesTranspostos;
-    utils.hideLoading();
-
-    // Salvar estado
-    appState.lastTransposition = appState.lastTransposition || {};
-    appState.lastTransposition.simple = {
-      input: acordesInput,
-      originKey: origem,
-      destKey: destino,
-      preference: preferencia
-    };
-    utils.saveToStorage();
-  }
-};
-
-// Módulo para o transpositor com partes da música
-const partsTransposer = {
-  sectionsContainer: null,
-  addSectionButton: null,
-  transposeAllButton: null,
-  sectionTemplate: null,
-  keyOriginSelect: null,
-  keyDestinationSelect: null,
-  preferenceSelect: null,
-
-  init() {
-    this.sectionsContainer = document.getElementById('sectionsContainer');
-    this.addSectionButton = document.getElementById('addSectionButton');
-    this.transposeAllButton = document.getElementById('transposeAllButton');
-    this.sectionTemplate = document.getElementById('sectionTemplate');
-    this.keyOriginSelect = document.getElementById('tomOrigemPartes');
-    this.keyDestinationSelect = document.getElementById('tomDestinoPartes');
-    this.preferenceSelect = document.getElementById('preferenciaPartes');
-
-    this.addSectionButton.addEventListener('click', () => this.addSection());
-    this.transposeAllButton.addEventListener('click', () => this.transposeAll());
-    this.keyOriginSelect.addEventListener('change', utils.debounce(this.transposeAll.bind(this), CONFIG.DEBOUNCE_DELAY));
-    this.keyDestinationSelect.addEventListener('change', utils.debounce(this.transposeAll.bind(this), CONFIG.DEBOUNCE_DELAY));
-    this.preferenceSelect.addEventListener('change', utils.debounce(this.transposeAll.bind(this), CONFIG.DEBOUNCE_DELAY));
-
-    // Carregar seções salvas
-    if (appState.sections && appState.sections.length > 0) {
-      appState.sections.forEach(sectionData => this.addSection(sectionData));
-      // Transpõe todas as seções ao carregar se houver dados
-      this.transposeAll();
-    } else {
-      this.addSection(); // Adiciona uma seção vazia se não houver dados salvos
-    }
-  },
-
-  addSection(sectionData = { name: '', chords: '', transposedChords: '' }) {
-    const newSection = this.sectionTemplate.content.cloneNode(true);
-    const sectionDiv = newSection.querySelector('.section-item');
-    const sectionNameInput = sectionDiv.querySelector('.section-name-input');
-    const chordsInput = sectionDiv.querySelector('.chords-input');
-    const transposedOutput = sectionDiv.querySelector('.transposed-chords-output');
-    const removeButton = sectionDiv.querySelector('.remove-section-button');
-
-    sectionNameInput.value = sectionData.name;
-    chordsInput.value = sectionData.chords;
-    transposedOutput.textContent = sectionData.transposedChords;
-
-    // Adiciona um ID único para cada seção
-    const sectionId = `section-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    sectionDiv.id = sectionId;
-
-    // Event listeners para inputs e botões
-    sectionNameInput.addEventListener('input', utils.debounce(() => {
-      this.updateSectionData(sectionId, 'name', sectionNameInput.value);
-      this.transposeAll();
-    }, CONFIG.DEBOUNCE_DELAY));
-    chordsInput.addEventListener('input', utils.debounce(() => {
-      this.updateSectionData(sectionId, 'chords', chordsInput.value);
-      this.transposeAll();
-    }, CONFIG.DEBOUNCE_DELAY));
-    removeButton.addEventListener('click', () => this.removeSection(sectionId));
-
-    this.sectionsContainer.appendChild(newSection);
-
-    // Se for uma nova seção, adiciona ao appState
-    if (!sectionData.id) { // Verifica se é uma nova seção ou carregada do storage
-      appState.sections.push({
-        id: sectionId,
-        name: sectionNameInput.value,
-        chords: chordsInput.value,
-        transposedChords: transposedOutput.textContent
-      });
-      utils.saveToStorage();
-    }
-  },
-
-  updateSectionData(sectionId, key, value) {
-    const sectionIndex = appState.sections.findIndex(s => s.id === sectionId);
-    if (sectionIndex !== -1) {
-      appState.sections[sectionIndex][key] = value;
-      utils.saveToStorage();
-    }
-  },
-
-  removeSection(sectionId) {
-    const sectionDiv = document.getElementById(sectionId);
-    if (sectionDiv) {
-      sectionDiv.classList.add('animate-out');
-      sectionDiv.addEventListener('animationend', () => {
-        sectionDiv.remove();
-        appState.sections = appState.sections.filter(s => s.id !== sectionId);
-        utils.saveToStorage();
-        utils.showNotification('Seção removida.', 'info');
-      }, { once: true });
-    }
-  },
-
-  transposeAll() {
-    utils.showLoading();
-    const origem = this.keyOriginSelect.value;
-    const destino = this.keyDestinationSelect.value;
-    const preferencia = this.preferenceSelect.value;
-
-    if (!transposition.isValidNote(origem) || !transposition.isValidNote(destino)) {
-      utils.showNotification('Selecione tons de origem e destino válidos.', 'error');
-      utils.hideLoading();
-      return;
-    }
-
-    // Expressão regular para encontrar acordes (a mesma do transpositor simples)
-    const chordRegex = new RegExp(
-      `\\b([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
-      'g'
-    );
-
-
-    appState.sections.forEach(section => {
-      const chordsInput = section.chords.trim();
-      if (!chordsInput) {
-        section.transposedChords = '';
+      if (!input) {
+        display.textContent = "Digite alguns acordes para transpor...";
+        display.style.background = "rgba(148, 163, 184, 0.1)";
         return;
       }
 
-      const transposed = chordsInput.split(/\s+/).map(acorde => {
-        const match = acorde.match(chordRegex);
-        if (match && match[0] === acorde) {
-          return transposition.transposeChord(acorde, origem, destino, preferencia);
-        }
-        return acorde;
-      }).join(' ');
-      section.transposedChords = transposed;
-
-      // Atualiza o DOM
-      const sectionDiv = document.getElementById(section.id);
-      if (sectionDiv) {
-        sectionDiv.querySelector('.transposed-chords-output').textContent = transposed;
-      }
-    });
-    utils.hideLoading();
-    utils.saveToStorage();
-    utils.showNotification('Todas as seções transpostas!', 'success');
+      const result = transposition.transposeChords(input, targetKey, preference);
+      
+      display.textContent = result;
+      display.style.background = "rgba(6, 182, 212, 0.1)";
+      
+      // Salvar última transposição
+      appState.lastTransposition = {
+        type: 'simple',
+        input,
+        result,
+        targetKey,
+        preference,
+        timestamp: Date.now()
+      };
+      utils.saveToStorage();
+      
+      utils.showNotification("Acordes transpostos com sucesso!");
+      
+    } catch (error) {
+      const display = document.getElementById("acordesTranspostosSimples");
+      display.textContent = error.message;
+      display.style.background = "rgba(239, 68, 68, 0.1)";
+      utils.showNotification(error.message, 'error');
+    } finally {
+      utils.hideLoading();
+    }
   }
 };
 
-// Módulo para o transpositor de cifra completa
-const fullChordTransposer = {
-  inputElement: null,
-  outputElement: null,
-  keyOriginSelect: null,
-  keyDestinationSelect: null,
-  preferenceSelect: null,
-  debouncedTranspose: null,
-
+// Transpositor com Partes
+const partsTransposer = {
   init() {
-    this.inputElement = document.getElementById('cifraCompletaInput');
-    this.outputElement = document.getElementById('resultadoCifra');
-    this.keyOriginSelect = document.getElementById('tomOrigemCifra');
-    this.keyDestinationSelect = document.getElementById('tomDestinoCifra');
-    this.preferenceSelect = document.getElementById('preferenciaCifra');
+    // Botão adicionar seção
+    const addButton = document.querySelector('button[onclick="adicionarSecao()"]');
+    if (addButton) {
+      addButton.removeAttribute('onclick');
+      addButton.addEventListener('click', () => this.addSection());
+    }
 
-    this.debouncedTranspose = utils.debounce(this.transpose.bind(this), CONFIG.DEBOUNCE_DELAY);
+    // Botão transpor todas
+    const transposeButton = document.querySelector('button[onclick="transporTodas()"]');
+    if (transposeButton) {
+      transposeButton.removeAttribute('onclick');
+      transposeButton.addEventListener('click', () => this.transposeAll());
+    }
 
-    this.inputElement.addEventListener('input', this.debouncedTranspose);
-    this.keyOriginSelect.addEventListener('change', this.debouncedTranspose);
-    this.keyDestinationSelect.addEventListener('change', this.debouncedTranspose);
-    this.preferenceSelect.addEventListener('change', this.debouncedTranspose);
+    // Enter key nos inputs
+    ['nomeSecao', 'acordesSecao'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input) {
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            this.addSection();
+          }
+        });
+      }
+    });
 
-    // Carregar último estado e transpor
-    if (appState.lastTransposition && appState.lastTransposition.full) {
-      this.inputElement.value = appState.lastTransposition.full.input;
-      this.keyOriginSelect.value = appState.lastTransposition.full.originKey;
-      this.keyDestinationSelect.value = appState.lastTransposition.full.destKey;
-      this.preferenceSelect.value = appState.lastTransposition.full.preference;
-      this.transpose(); // Transpõe imediatamente ao carregar
+    // Renderizar seções salvas
+    this.renderSections();
+  },
+
+  addSection() {
+    const nameInput = document.getElementById("nomeSecao");
+    const chordsInput = document.getElementById("acordesSecao");
+    
+    const name = nameInput.value.trim();
+    const chords = chordsInput.value.trim();
+
+    if (!name || !chords) {
+      utils.showNotification("Preencha o nome da seção e os acordes.", 'error');
+      return;
+    }
+
+    // Adicionar ao estado
+    appState.sections.push({ name, chords, id: Date.now() });
+    utils.saveToStorage();
+
+    // Limpar inputs
+    nameInput.value = "";
+    chordsInput.value = "";
+
+    // Re-renderizar
+    this.renderSections();
+    
+    utils.showNotification(`Seção "${name}" adicionada!`);
+  },
+
+  removeSection(id) {
+    appState.sections = appState.sections.filter(section => section.id !== id);
+    utils.saveToStorage();
+    this.renderSections();
+    utils.showNotification("Seção removida!");
+  },
+
+  renderSections() {
+    const container = document.getElementById("secoesContainer");
+    if (!container) return;
+
+    if (appState.sections.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: var(--gray-400);">
+          <p>Nenhuma seção adicionada ainda.</p>
+          <p>Adicione seções da sua música acima.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = appState.sections.map(section => `
+      <div class="section-item" data-id="${section.id}">
+        <div class="section-title">
+          🎵 ${section.name}
+          <button 
+            onclick="partsTransposer.removeSection(${section.id})" 
+            style="margin-left: auto; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;"
+            title="Remover seção"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="section-result" id="resultado-${section.id}">${section.chords}</div>
+      </div>
+    `).join('');
+  },
+
+  transposeAll() {
+    try {
+      utils.showLoading();
+      
+      if (appState.sections.length === 0) {
+        utils.showNotification("Adicione algumas seções primeiro.", 'error');
+        return;
+      }
+
+      const targetKey = document.getElementById("tomDestinoPartes").value;
+      const preference = document.getElementById("preferenciaPartes").value;
+
+      // Encontrar tom original da primeira seção
+      let originalKey = -1;
+      for (let section of appState.sections) {
+        const chords = section.chords.split(/\s+/);
+        originalKey = transposition.findOriginalKey(chords);
+        if (originalKey !== -1) break;
+      }
+
+      if (originalKey === -1) {
+        throw new Error("Não foi possível identificar o tom original.");
+      }
+
+      const [targetIndexStr] = targetKey.split("-");
+      const targetIndex = parseInt(targetIndexStr);
+
+      // Transpor cada seção
+      appState.sections.forEach(section => {
+        const chords = section.chords.split(/\s+/);
+        const transposedChords = chords.map(chord => 
+          transposition.transposeChord(chord, originalKey, targetIndex, preference)
+        );
+
+        const resultElement = document.getElementById(`resultado-${section.id}`);
+        if (resultElement) {
+          resultElement.textContent = transposedChords.join(" ");
+        }
+      });
+
+      utils.showNotification("Todas as seções foram transpostas!");
+      
+    } catch (error) {
+      utils.showNotification(error.message, 'error');
+    } finally {
+      utils.hideLoading();
+    }
+  }
+};
+
+// Transpositor de Cifra Completa
+const fullChordTransposer = {
+  init() {
+    // Botões
+    const transposeButton = document.querySelector('button[onclick="transporCifra()"]');
+    if (transposeButton) {
+      transposeButton.removeAttribute('onclick');
+      transposeButton.addEventListener('click', () => this.transpose());
+    }
+
+    const copyButton = document.querySelector('button[onclick="copiarCifra()"]');
+    if (copyButton) {
+      copyButton.removeAttribute('onclick');
+      copyButton.addEventListener('click', () => this.copy());
+    }
+
+    const exportButton = document.querySelector('button[onclick="exportarPdf()"]');
+    if (exportButton) {
+      exportButton.removeAttribute('onclick');
+      exportButton.addEventListener('click', () => this.exportPdf());
     }
   },
 
   transpose() {
-    utils.showLoading();
-    const cifraCompleta = this.inputElement.value;
-    const origem = this.keyOriginSelect.value;
-    const destino = this.keyDestinationSelect.value;
-    const preferencia = this.preferenceSelect.value;
+    try {
+      utils.showLoading();
+      
+      const input = document.getElementById("inputCifra").value.trim();
+      const targetKey = document.getElementById("tomDestinoCifra").value;
+      const preference = document.getElementById("preferenciaCifra").value;
+      const display = document.getElementById("resultadoCifra");
 
-    if (!cifraCompleta) {
-      this.outputElement.textContent = '';
-      utils.hideLoading();
-      return;
-    }
-
-    if (!transposition.isValidNote(origem) || !transposition.isValidNote(destino)) {
-      utils.showNotification('Selecione tons de origem e destino válidos.', 'error');
-      this.outputElement.textContent = 'Erro: Selecione tons válidos.';
-      utils.hideLoading();
-      return;
-    }
-
-    // Regex para identificar acordes na cifra completa.
-    // Garante que a nota seja seguida por um sufixo de acorde válido
-    // ou por um espaço/fim de linha, para evitar que palavras sejam transpostas.
-    // ATENÇÃO: Esta regex foi aprimorada para ser mais específica e evitar
-    // que letras de músicas sejam confundidas com sufixos de acordes.
-    // Ela busca:
-    // 1. Uma nota raiz (A-G com ou sem #/b).
-    // 2. Um grupo opcional de caracteres que representam sufixos comuns de acordes
-    //    (m, maj, min, dim, aug, sus, add, números, +, -, o, Δ).
-    // 3. Um grupo opcional para a nota do baixo (ex: /G).
-    // As bordas de palavra (\b) ajudam a garantir que apenas "palavras" que começam
-    // com uma nota e têm um sufixo de acorde sejam consideradas.
-    // O uso de `(?:...)` cria grupos não-capturantes para partes da regex que não
-    // precisam ser extraídas separadamente.
-    // O `(?![a-zA-Z])` (negative lookahead) garante que o que segue o acorde NÃO seja uma letra.
-    const chordRegex = new RegExp(
-      `\\b([A-G][#b]?)(?:m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
-      'g'
-    );
-
-
-    const resultado = cifraCompleta.replace(chordRegex, (fullMatch, nota, sufixo) => {
-      // Se a nota não for válida, retorna o fullMatch original para não alterar
-      if (!transposition.isValidNote(nota)) {
-        return fullMatch;
+      if (!input) {
+        display.textContent = "Cole uma cifra completa para transpor...";
+        return;
       }
-      return transposition.transposeChord(fullMatch, origem, destino, preferencia);
-    });
 
-    this.outputElement.textContent = resultado;
-    utils.hideLoading();
+      const [targetIndexStr] = targetKey.split("-");
+      const targetIndex = parseInt(targetIndexStr);
 
-    // Salvar estado
-    appState.lastTransposition = appState.lastTransposition || {};
-    appState.lastTransposition.full = {
-      input: cifraCompleta,
-      originKey: origem,
-      destKey: destino,
-      preference: preferencia
-    };
-    utils.saveToStorage();
+      // Regex para detectar acordes
+      const chordRegex = /([A-G](?:#|b)?)([^ \n\r]*)/g;
+
+      // Encontrar tom original
+      let originalKey = -1;
+      let match;
+      const tempRegex = new RegExp(chordRegex.source, chordRegex.flags);
+      
+      while ((match = tempRegex.exec(input)) && originalKey === -1) {
+        if (notasValidasSimples.includes(match[1])) {
+          originalKey = notasCromaticasSimples.findIndex(n => 
+            n.s === match[1] || n.b === match[1]
+          );
+        }
+      }
+
+      if (originalKey === -1) {
+        throw new Error("Não foi possível identificar o tom original da cifra.");
+      }
+
+      // Transpor toda a cifra
+      const result = input.replace(chordRegex, (fullMatch, note, suffix) => {
+        const noteIndex = notasCromaticasSimples.findIndex(n => 
+          n.s === note || n.b === note
+        );
+        
+        if (noteIndex === -1) return fullMatch;
+
+        const transposedIndex = (noteIndex - originalKey + targetIndex + 12) % 12;
+        const newNote = preference === "bemol" 
+          ? notasCromaticasSimples[transposedIndex].b
+          : notasCromaticasSimples[transposedIndex].s;
+
+        return newNote + suffix;
+      });
+
+      display.textContent = result;
+      utils.showNotification("Cifra transposta com sucesso!");
+      
+    } catch (error) {
+      const display = document.getElementById("resultadoCifra");
+      display.textContent = error.message;
+      utils.showNotification(error.message, 'error');
+    } finally {
+      utils.hideLoading();
+    }
   },
 
-  copy() {
-    const texto = this.outputElement.textContent;
-    if (!texto.trim()) {
-      utils.showNotification("Não há cifra para copiar.", 'warning');
+  async copy() {
+    const text = document.getElementById("resultadoCifra").textContent;
+    
+    if (!text.trim() || text.includes("Cole uma cifra") || text.includes("Não foi possível")) {
+      utils.showNotification("Não há cifra transposta para copiar.", 'error');
       return;
     }
-    // Usar document.execCommand('copy') para maior compatibilidade em iframes
-    const textarea = document.createElement('textarea');
-    textarea.value = texto;
-    document.body.appendChild(textarea);
-    textarea.select();
+
     try {
+      await navigator.clipboard.writeText(text);
+      utils.showNotification("Cifra copiada para a área de transferência!");
+    } catch (error) {
+      // Fallback para navegadores mais antigos
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
       document.execCommand('copy');
-      utils.showNotification("Cifra copiada para a área de transferência!", 'success');
-    } catch (err) {
-      console.error('Falha ao copiar:', err);
-      utils.showNotification("Falha ao copiar a cifra.", 'error');
-    } finally {
-      document.body.removeChild(textarea);
+      document.body.removeChild(textArea);
+      utils.showNotification("Cifra copiada!");
     }
   },
 
   exportPdf() {
-    const cifra = this.outputElement.textContent;
-    if (!cifra.trim()) {
-      utils.showNotification("Não há cifra para exportar.", 'warning');
+    const cifra = document.getElementById("resultadoCifra").textContent;
+    
+    if (!cifra.trim() || cifra.includes("Cole uma cifra") || cifra.includes("Não foi possível")) {
+      utils.showNotification("Não há cifra transposta para exportar.", 'error');
       return;
     }
 
     try {
       const printWindow = window.open("", "_blank");
       printWindow.document.write(`
+        <!DOCTYPE html>
         <html>
         <head>
-          <title>Exportar Cifra</title>
+          <title>Cifra Transposta</title>
           <style>
             body {
-              font-family: monospace;
-              white-space: pre-wrap;
+              font-family: 'Courier New', monospace;
+              line-height: 1.6;
               padding: 20px;
-              font-size: 1rem;
-              line-height: 1.5;
+              max-width: 800px;
+              margin: 0 auto;
+            }
+            h1 {
+              color: #333;
+              border-bottom: 2px solid #333;
+              padding-bottom: 10px;
+            }
+            pre {
+              white-space: pre-wrap;
+              word-wrap: break-word;
+              background: #f5f5f5;
+              padding: 20px;
+              border-radius: 8px;
+              border: 1px solid #ddd;
             }
             @media print {
-              body {
-                font-size: 10pt; /* Tamanho de fonte para impressão */
-              }
+              body { padding: 0; }
+              h1 { color: black; }
             }
           </style>
         </head>
         <body>
+          <h1>Cifra Transposta</h1>
           <pre>${cifra}</pre>
           <script>
-            // Fecha a janela após a impressão para navegadores que suportam
             window.onload = function() {
               window.print();
               setTimeout(() => window.close(), 1000);
@@ -647,37 +636,35 @@ const fullChordTransposer = {
         </body>
         </html>
       `);
-      printWindow.document.close(); // Fecha o documento para garantir que o conteúdo seja renderizado
-
+      printWindow.document.close();
+      
       utils.showNotification("Abrindo janela de impressão...");
-
+      
     } catch (error) {
       utils.showNotification("Erro ao exportar PDF.", 'error');
-      console.error("Erro ao exportar PDF:", error);
     }
   }
 };
 
 // Inicialização da aplicação
 document.addEventListener('DOMContentLoaded', () => {
-  // Carregar dados salvos do localStorage
+  // Carregar dados salvos
   utils.loadFromStorage();
-
+  
   // Inicializar módulos
   navigation.init();
   transposition.populateKeySelects();
   simpleTransposer.init();
   partsTransposer.init();
   fullChordTransposer.init();
-
-  // Esconder o overlay de carregamento inicial
+  
+  // Esconder loading inicial
   utils.hideLoading();
-
+  
   console.log('🎵 Transpositores de Acordes carregado com sucesso!');
 });
 
-// Funções globais para compatibilidade (caso sejam chamadas diretamente do HTML)
-// É uma boa prática usar os módulos diretamente, mas estas são para retrocompatibilidade.
+// Funções globais para compatibilidade (caso sejam chamadas diretamente)
 function mostrar(sectionId) {
   navigation.showSection(sectionId);
 }
@@ -706,13 +693,13 @@ function exportarPdf() {
   fullChordTransposer.exportPdf();
 }
 
-// Exportar para uso global se necessário (para depuração ou integração externa)
+// Exportar para uso global se necessário
 window.ChordTransposer = {
   utils,
   navigation,
   transposition,
   simpleTransposer,
   partsTransposer,
-  fullChordTransposer,
-  appState // Expor o estado para depuração
+  fullChordTransposer
 };
+
