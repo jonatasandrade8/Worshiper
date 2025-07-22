@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transpositores de Acordes - Ferramenta Musical Profissional</title>
+  <meta name="description" content="Ferramenta profissional para transposição de acordes musicais. Transponha acordes simples, partes de música ou cifras completas com facilidade.">
+  
+  <!-- Preload fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Background Pattern -->
+  <div class="bg-pattern"></div>
+  
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">
+          <h1>🎵 Transpositores</h1>
+          <span class="logo-subtitle">Acordes Musicais</span>
+        </div>
+        
+        <nav class="nav" role="navigation" aria-label="Navegação principal">
+          <button class="nav-toggle" aria-label="Abrir menu" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          
+          <ul class="nav-menu">
+            <li><a href="#simples" class="nav-link active" data-section="simples">Transpositor Simples</a></li>
+            <li><a href="#partes" class="nav-link" data-section="partes">Com Partes</a></li>
+            <li><a href="#cifra" class="nav-link" data-section="cifra">Cifra Completa</a></li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="container">
+      
+      <!-- Hero Section -->
+      <section class="hero">
+        <h2 class="hero-title">Transponha seus acordes com facilidade</h2>
+        <p class="hero-subtitle">Ferramenta profissional para músicos, professores e estudantes</p>
+      </section>
+
+      <!-- Transpositor Simples -->
+      <section id="simples" class="section active" aria-labelledby="simples-title">
+        <div class="card">
+          <header class="card-header">
+            <h2 id="simples-title" class="card-title">🎸 Transpositor Simples</h2>
+            <p class="card-description">Digite os acordes separados por espaço e escolha o tom de destino</p>
+          </header>
+          
+          <div class="card-content">
+            <div class="form-group">
+              <label for="inputAcordesSimples" class="form-label">Acordes para transpor</label>
+              <input 
+                id="inputAcordesSimples" 
+                class="form-input" 
+                placeholder="Ex: Fm C# G#7 Ddim A7" 
+                autocomplete="off"
+                aria-describedby="simples-help"
+              />
+              <small id="simples-help" class="form-help">Separe os acordes com espaços</small>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="tomDestinoSimples" class="form-label">Tom de destino</label>
+                <select id="tomDestinoSimples" class="form-select" aria-label="Escolha o tom de destino"></select>
+              </div>
+
+              <div class="form-group">
+                <label for="preferenciaSimples" class="form-label">Notação</label>
+                <select id="preferenciaSimples" class="form-select" aria-label="Preferência de notação">
+                  <option value="sustenido">Sustenidos (#)</option>
+                  <option value="bemol">Bemóis (♭)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="transporSimples()" class="btn btn-primary btn-large">
+              <span class="btn-icon">🎵</span>
+              Transpor Acordes
+            </button>
+
+            <div id="acordesTranspostosSimples" class="result-card" aria-live="polite" aria-atomic="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Transpositor com Partes -->
+      <section id="partes" class="section" aria-labelledby="partes-title">
+        <div class="card">
+          <header class="card-header">
+            <h2 id="partes-title" class="card-title">🎼 Transpositor com Partes</h2>
+            <p class="card-description">Organize sua música por seções (intro, verso, refrão, etc.)</p>
+          </header>
+          
+          <div class="card-content">
+            <div class="add-section-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="nomeSecao" class="form-label">Nome da seção</label>
+                  <input id="nomeSecao" class="form-input" placeholder="Ex: Intro, Verso, Refrão..." />
+                </div>
+
+                <div class="form-group">
+                  <label for="acordesSecao" class="form-label">Acordes da seção</label>
+                  <input id="acordesSecao" class="form-input" placeholder="Ex: G D Em C" />
+                </div>
+              </div>
+
+              <button onclick="adicionarSecao()" class="btn btn-secondary">
+                <span class="btn-icon">➕</span>
+                Adicionar Seção
+              </button>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="tomDestinoPartes" class="form-label">Tom de destino</label>
+                <select id="tomDestinoPartes" class="form-select"></select>
+              </div>
+
+              <div class="form-group">
+                <label for="preferenciaPartes" class="form-label">Notação</label>
+                <select id="preferenciaPartes" class="form-select">
+                  <option value="sustenido">Sustenidos (#)</option>
+                  <option value="bemol">Bemóis (♭)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="transporTodas()" class="btn btn-primary btn-large">
+              <span class="btn-icon">🎵</span>
+              Transpor Todas as Seções
+            </button>
+
+            <div id="secoesContainer" class="sections-container"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Transpositor de Cifra Completa -->
+      <section id="cifra" class="section" aria-labelledby="cifra-title">
+        <div class="card">
+          <header class="card-header">
+            <h2 id="cifra-title" class="card-title">📄 Cifra Completa</h2>
+            <p class="card-description">Cole sua cifra completa e transponha tudo de uma vez</p>
+          </header>
+          
+          <div class="card-content">
+            <div class="form-group">
+              <label for="inputCifra" class="form-label">Cifra completa</label>
+              <textarea 
+                id="inputCifra" 
+                class="form-textarea" 
+                rows="8" 
+                placeholder="Cole aqui a cifra completa com letras e acordes..."
+                aria-describedby="cifra-help"
+              ></textarea>
+              <small id="cifra-help" class="form-help">Cole a cifra com acordes e letras</small>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="tomDestinoCifra" class="form-label">Tom de destino</label>
+                <select id="tomDestinoCifra" class="form-select"></select>
+              </div>
+
+              <div class="form-group">
+                <label for="preferenciaCifra" class="form-label">Notação</label>
+                <select id="preferenciaCifra" class="form-select">
+                  <option value="sustenido">Sustenidos (#)</option>
+                  <option value="bemol">Bemóis (♭)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button onclick="transporCifra()" class="btn btn-primary">
+                <span class="btn-icon">🎵</span>
+                Transpor Cifra
+              </button>
+              <button onclick="copiarCifra()" class="btn btn-secondary">
+                <span class="btn-icon">📋</span>
+                Copiar
+              </button>
+              <button onclick="exportarPdf()" class="btn btn-secondary">
+                <span class="btn-icon">📄</span>
+                Exportar PDF
+              </button>
+            </div>
+
+            <div id="resultadoCifra" class="result-card result-cifra" aria-live="polite" aria-atomic="true"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2024 Transpositores de Acordes. Ferramenta para músicos.</p>
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Processando...</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
