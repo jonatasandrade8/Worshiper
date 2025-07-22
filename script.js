@@ -715,3 +715,4 @@ window.ChordTransposer = {
   partsTransposer,
   fullChordTransposer,
   appState // Expor o estado para depuração
+};
