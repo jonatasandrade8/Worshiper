@@ -315,7 +315,10 @@ const simpleTransposer = {
     // seguida por qualquer combinação de letras, números, '/', '+', '-', 'o', 'Δ'
     // que compõem um sufixo de acorde, até um espaço ou fim de linha.
     // Garante que não capture letras de palavras.
-    const chordRegex = /([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\d*|add\d*|\d+(?:sus\d*)?|[+-oΔ])*(?:\/[A-G][#b]?)?/g;
+    const chordRegex = new RegExp(
+      `\\b([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
+      'g'
+    );
 
 
     const acordesTranspostos = acordesInput.split(/\s+/).map(acorde => {
@@ -452,7 +455,10 @@ const partsTransposer = {
     }
 
     // Expressão regular para encontrar acordes (a mesma do transpositor simples)
-    const chordRegex = /([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\d*|add\d*|\d+(?:sus\d*)?|[+-oΔ])*(?:\/[A-G][#b]?)?/g;
+    const chordRegex = new RegExp(
+      `\\b([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
+      'g'
+    );
 
 
     appState.sections.forEach(section => {
@@ -550,8 +556,9 @@ const fullChordTransposer = {
     // com uma nota e têm um sufixo de acorde sejam consideradas.
     // O uso de `(?:...)` cria grupos não-capturantes para partes da regex que não
     // precisam ser extraídas separadamente.
+    // O `(?![a-zA-Z])` (negative lookahead) garante que o que segue o acorde NÃO seja uma letra.
     const chordRegex = new RegExp(
-      `\\b([A-G][#b]?)(m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b`,
+      `\\b([A-G][#b]?)(?:m(?:aj|in)?|M|dim|aug|sus\\d*|add\\d*|\\d+(?:sus\\d*)?|[+-oΔ])*(?:\\/[A-G][#b]?)?\\b(?![a-zA-Z])`,
       'g'
     );
 
@@ -708,4 +715,3 @@ window.ChordTransposer = {
   partsTransposer,
   fullChordTransposer,
   appState // Expor o estado para depuração
-};
